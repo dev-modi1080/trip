@@ -74,8 +74,18 @@ export async function POST(request: Request) {
 
     if (!tokenResponse.ok || !tokenData.access_token) {
       console.error("Failed to refresh Google access token:", tokenData);
+      let errorMessage = "Failed to authenticate with Google Drive";
+      if (tokenData.error === "invalid_client") {
+        errorMessage = "Google OAuth client credentials (GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET) in .env.local are invalid. Please check your Google Cloud Console configuration.";
+      } else if (tokenData.error === "invalid_grant") {
+        errorMessage = "Google Drive refresh token is invalid or has expired. Please disconnect and reconnect your Google Drive in settings.";
+      } else if (tokenData.error_description) {
+        errorMessage = `Google authentication error: ${tokenData.error_description}`;
+      } else if (tokenData.error) {
+        errorMessage = `Google authentication error: ${tokenData.error}`;
+      }
       return NextResponse.json(
-        { error: "Failed to authenticate with Google Drive" },
+        { error: errorMessage },
         { status: 401 }
       );
     }
@@ -170,15 +180,14 @@ export async function POST(request: Request) {
       parents: [folderId],
     };
 
-    // Construct multipart/related body
+    // Construct multipart/related body (sending raw binary buffer instead of base64)
     const multipartBody = Buffer.concat([
       Buffer.from(delimiter),
       Buffer.from("Content-Type: application/json; charset=UTF-8\r\n\r\n"),
       Buffer.from(JSON.stringify(metadata)),
       Buffer.from(delimiter),
-      Buffer.from(`Content-Type: ${fileType}\r\n`),
-      Buffer.from("Content-Transfer-Encoding: base64\r\n\r\n"),
-      Buffer.from(fileBuffer.toString("base64")),
+      Buffer.from(`Content-Type: ${fileType}\r\n\r\n`),
+      fileBuffer,
       Buffer.from(closeDelimiter),
     ]);
 
