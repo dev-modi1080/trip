@@ -229,7 +229,7 @@ export default function SignupPage() {
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="John Doe"
                   required
-                  className="input-dark pl-11"
+                  className="input-dark !pl-11"
                 />
               </div>
             </div>
@@ -251,7 +251,7 @@ export default function SignupPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   required
-                  className="input-dark pl-11"
+                  className="input-dark !pl-11"
                 />
               </div>
             </div>
@@ -274,7 +274,7 @@ export default function SignupPage() {
                   placeholder="••••••••"
                   required
                   minLength={6}
-                  className="input-dark pl-11 pr-11"
+                  className="input-dark !pl-11 !pr-11"
                 />
                 <button
                   type="button"
@@ -312,7 +312,7 @@ export default function SignupPage() {
                   placeholder="••••••••"
                   required
                   minLength={6}
-                  className="input-dark pl-11 pr-11"
+                  className="input-dark !pl-11 !pr-11"
                 />
                 <button
                   type="button"

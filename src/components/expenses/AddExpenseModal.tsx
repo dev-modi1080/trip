@@ -331,7 +331,7 @@ export default function AddExpenseModal({ isOpen, onClose }: AddExpenseModalProp
                   step="0.01"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="input-dark pl-9"
+                  className="input-dark !pl-9"
                 />
               </div>
             </div>
@@ -492,7 +492,7 @@ export default function AddExpenseModal({ isOpen, onClose }: AddExpenseModalProp
                               [m.user_id]: e.target.value,
                             }))
                           }
-                          className="input-dark text-xs py-1.5 pl-7 pr-2 text-right"
+                          className="input-dark text-xs !py-1.5 !pl-7 !pr-2 text-right"
                         />
                       </div>
                     )}
@@ -511,7 +511,7 @@ export default function AddExpenseModal({ isOpen, onClose }: AddExpenseModalProp
                               [m.user_id]: e.target.value,
                             }))
                           }
-                          className="input-dark text-xs py-1.5 px-2 text-right"
+                          className="input-dark text-xs !py-1.5 !px-2 text-right"
                         />
                         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
                           %

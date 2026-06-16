@@ -49,7 +49,7 @@ function getSplitTypeBadge(splitType: Expense['split_type']) {
 }
 
 export default function ExpenseList() {
-  const { expenses, refreshExpenses, currentUserId, isAdmin } = useTrip();
+  const { expenses, refreshExpenses, currentUserId, isAdmin, members } = useTrip();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,6 +57,64 @@ export default function ExpenseList() {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [togglingSplitId, setTogglingSplitId] = useState<string | null>(null);
+
+  const handleToggleSplitPaid = async (
+    expense: Expense,
+    splitId: string,
+    currentStatus: boolean,
+    splitUserId: string,
+    splitAmount: number
+  ) => {
+    setTogglingSplitId(splitId);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('expense_splits')
+        .update({ is_paid: !currentStatus })
+        .eq('id', splitId);
+
+      if (error) throw error;
+
+      // Send notifications to everyone else on the trip
+      try {
+        const triggerUser = members.find((m) => m.user_id === currentUserId)?.user;
+        const triggerName = triggerUser?.full_name ?? 'Someone';
+        const targetUser = members.find((m) => m.user_id === splitUserId)?.user;
+        const targetName = targetUser?.full_name ?? 'Someone';
+
+        // Notify all trip members except the trigger user
+        const notifyList = members
+          .map((m) => m.user_id)
+          .filter((id) => id !== currentUserId);
+
+        if (notifyList.length > 0) {
+          const statusText = !currentStatus ? 'paid' : 'unpaid';
+          const inserts = notifyList.map((userId) => ({
+            user_id: userId,
+            trip_id: expense.trip_id,
+            type: 'settlement' as const,
+            title: !currentStatus ? 'Payment Marked Paid' : 'Payment Marked Pending',
+            message: currentUserId === splitUserId
+              ? `${triggerName} marked their split of "${expense.description}" (${formatCurrency(splitAmount)}) as ${statusText}`
+              : `${triggerName} marked ${targetName}'s split of "${expense.description}" (${formatCurrency(splitAmount)}) as ${statusText}`,
+          }));
+
+          await supabase.from('notifications').insert(inserts);
+        }
+      } catch (notifErr) {
+        console.error('Error sending split payment notification:', notifErr);
+      }
+
+      await refreshExpenses();
+    } catch (err) {
+      console.error('Error toggling split status:', err);
+      alert('Failed to update split payment status. Please run the SQL schema migration if you haven\'t already.');
+    } finally {
+      setTogglingSplitId(null);
+    }
+  };
 
   const handleDelete = async (expenseId: string) => {
     if (!confirm('Are you sure you want to delete this expense?')) return;
@@ -155,7 +213,7 @@ export default function ExpenseList() {
               placeholder="Search expenses..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="input-dark pl-10"
+              className="input-dark !pl-10"
               autoFocus
             />
           </div>
@@ -234,7 +292,8 @@ export default function ExpenseList() {
                 return (
                   <div
                     key={expense.id}
-                    className="glass-card p-4 animate-fade-in opacity-0"
+                    className="glass-card p-4 animate-fade-in opacity-0 cursor-pointer hover:bg-slate-50/30 transition-all duration-300 select-none"
+                    onClick={() => setExpandedId(expandedId === expense.id ? null : expense.id)}
                     style={{
                       animationDelay: `${Math.min(currentIndex * 0.06, 0.6)}s`,
                       animationFillMode: 'forwards',
@@ -317,11 +376,15 @@ export default function ExpenseList() {
                               <>
                                 <div 
                                   className="fixed inset-0 z-30" 
-                                  onClick={() => setMenuOpenId(null)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setMenuOpenId(null);
+                                  }}
                                 />
-                                <div className="absolute right-0 mt-1 w-28 rounded-xl bg-[var(--card)] border border-border shadow-xl py-1 z-40 animate-fade-in">
+                                <div className="absolute right-0 mt-1 w-28 rounded-xl bg-[var(--card)] border border-border shadow-xl py-1 z-40 animate-fade-in" onClick={(e) => e.stopPropagation()}>
                                   <button
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                      e.stopPropagation();
                                       setEditingExpense(expense);
                                       setMenuOpenId(null);
                                     }}
@@ -331,7 +394,10 @@ export default function ExpenseList() {
                                     Edit
                                   </button>
                                   <button
-                                    onClick={() => handleDelete(expense.id)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDelete(expense.id);
+                                    }}
                                     disabled={deletingId === expense.id}
                                     className="flex items-center gap-2 w-full px-3.5 py-2 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors text-left disabled:opacity-50"
                                   >
@@ -345,6 +411,86 @@ export default function ExpenseList() {
                         )}
                       </div>
                     </div>
+
+                    {/* Split Breakdown Detail Drawer */}
+                    {expandedId === expense.id && expense.splits && expense.splits.length > 0 && (
+                      <div 
+                        className="mt-4 pt-4 border-t border-border/60 space-y-3 animate-fade-in"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                          <span>Split Breakdown</span>
+                          <span>Payment Status</span>
+                        </div>
+                        <div className="divide-y divide-border/30">
+                          {expense.splits.map((split) => {
+                            const isPaid = split.is_paid;
+                            const canToggle = isAdmin || currentUserId === expense.paid_by || currentUserId === split.user_id;
+                            const splitUser = split.user;
+                            const isPayer = split.user_id === expense.paid_by;
+
+                            return (
+                              <div key={split.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                                <div className="flex items-center gap-2.5">
+                                  {splitUser?.avatar_url ? (
+                                    <img
+                                      src={splitUser.avatar_url}
+                                      alt={splitUser.full_name}
+                                      className="w-7 h-7 rounded-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="avatar avatar-sm w-7 h-7 text-[10px]">
+                                      {getInitials(splitUser?.full_name ?? '?')}
+                                    </div>
+                                  )}
+                                  <div>
+                                    <p className="text-xs font-semibold text-foreground">
+                                      {splitUser?.full_name ?? 'Unknown'}
+                                      {split.user_id === currentUserId && <span className="text-[10px] text-primary ml-1">(You)</span>}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                                      Owes {formatCurrency(split.amount_owed)}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  {isPayer ? (
+                                    <span className="badge badge-success text-[10px] py-0.5 px-2">Payer (Paid)</span>
+                                  ) : (
+                                    <>
+                                      <span className={cn(
+                                        "badge text-[10px] py-0.5 px-2",
+                                        isPaid ? "badge-success" : "bg-amber-500/10 text-amber-600"
+                                      )}>
+                                        {isPaid ? "Paid" : "Pending"}
+                                      </span>
+                                      {canToggle && (
+                                        <button
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            await handleToggleSplitPaid(expense, split.id, !!isPaid, split.user_id, split.amount_owed);
+                                          }}
+                                          disabled={togglingSplitId === split.id}
+                                          className={cn(
+                                            "text-[10px] font-bold px-2 py-1 rounded-lg transition-all cursor-pointer",
+                                            isPaid
+                                              ? "bg-slate-100 text-muted-foreground hover:bg-slate-200/85"
+                                              : "bg-primary/10 text-primary hover:bg-primary/20 hover:scale-[1.02]"
+                                          )}
+                                        >
+                                          {togglingSplitId === split.id ? "..." : isPaid ? "Mark Unpaid" : "Mark Paid"}
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

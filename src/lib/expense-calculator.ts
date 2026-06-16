@@ -35,6 +35,14 @@ export function calculateBalances(
         const member = balanceMap.get(split.user_id);
         if (member) {
           member.totalOwed += split.amount_owed;
+
+          // If the split has been marked as paid (and it's not the payer themselves)
+          if (split.is_paid && split.user_id !== expense.paid_by) {
+            member.totalPaid += split.amount_owed;
+            if (payer) {
+              payer.totalOwed += split.amount_owed;
+            }
+          }
         }
       });
     }
