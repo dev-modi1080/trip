@@ -110,16 +110,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         />
       )}
 
-      {/* Desktop Sidebar */}
+      {/* Sidebar */}
       <aside
         className={cn(
-          "fixed top-0 left-0 z-50 flex h-screen w-72 flex-col border-r border-border/50",
-          "glass-card rounded-none",
-          // Mobile: slide-in drawer
-          "transition-transform duration-300 md:translate-x-0",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          "flex h-screen w-72 flex-col border-r border-border/50 bg-card",
+          // Desktop: sticky in-flow sidebar
+          "md:sticky md:top-0 md:shrink-0 md:translate-x-0",
+          // Mobile: fixed slide-in drawer
+          "fixed top-0 left-0 z-50",
+          "transition-transform duration-300",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
-        style={{ borderRadius: 0 }}
       >
         {/* Logo */}
         <div className="flex items-center justify-between px-6 py-6 border-b border-border/30">
@@ -207,7 +208,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 md:ml-72 min-h-screen">
+      <main className="flex-1 min-h-screen min-w-0">
         {/* Mobile Header */}
         <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-xl border-b border-border/30 md:hidden">
           <button
@@ -235,7 +236,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </header>
 
         {/* Page Content */}
-        <div className="p-4 sm:p-6 lg:p-8">{children}</div>
+        <div className="p-4 sm:p-6 lg:p-8 pb-24 md:pb-8">{children}</div>
       </main>
 
       {/* Mobile Bottom Navigation */}
