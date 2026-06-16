@@ -49,7 +49,7 @@ function getSplitTypeBadge(splitType: Expense['split_type']) {
 }
 
 export default function ExpenseList() {
-  const { expenses, refreshExpenses, currentUserId, isAdmin, members } = useTrip();
+  const { expenses, refreshExpenses, currentUserId, isAdmin, members, setExpenses } = useTrip();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,6 +67,19 @@ export default function ExpenseList() {
     splitUserId: string,
     splitAmount: number
   ) => {
+    // Optimistic UI state update (UI updates instantly!)
+    setExpenses((prevExpenses) =>
+      prevExpenses.map((exp) => {
+        if (exp.id !== expense.id || !exp.splits) return exp;
+        return {
+          ...exp,
+          splits: exp.splits.map((split) =>
+            split.id === splitId ? { ...split, is_paid: !currentStatus } : split
+          ),
+        };
+      })
+    );
+
     setTogglingSplitId(splitId);
     try {
       const supabase = createClient();
@@ -75,7 +88,21 @@ export default function ExpenseList() {
         .update({ is_paid: !currentStatus })
         .eq('id', splitId);
 
-      if (error) throw error;
+      if (error) {
+        // Revert local state if database operation fails
+        setExpenses((prevExpenses) =>
+          prevExpenses.map((exp) => {
+            if (exp.id !== expense.id || !exp.splits) return exp;
+            return {
+              ...exp,
+              splits: exp.splits.map((split) =>
+                split.id === splitId ? { ...split, is_paid: currentStatus } : split
+              ),
+            };
+          })
+        );
+        throw error;
+      }
 
       // Send notifications to everyone else on the trip
       try {
@@ -425,7 +452,7 @@ export default function ExpenseList() {
                         <div className="divide-y divide-border/30">
                           {expense.splits.map((split) => {
                             const isPaid = split.is_paid;
-                            const canToggle = isAdmin || currentUserId === expense.paid_by || currentUserId === split.user_id;
+                            const canToggle = isAdmin;
                             const splitUser = split.user;
                             const isPayer = split.user_id === expense.paid_by;
 
@@ -458,31 +485,36 @@ export default function ExpenseList() {
                                   {isPayer ? (
                                     <span className="badge badge-success text-[10px] py-0.5 px-2">Payer (Paid)</span>
                                   ) : (
-                                    <>
-                                      <span className={cn(
-                                        "badge text-[10px] py-0.5 px-2",
-                                        isPaid ? "badge-success" : "bg-amber-500/10 text-amber-600"
-                                      )}>
-                                        {isPaid ? "Paid" : "Pending"}
+                                    <div className="flex flex-col items-end gap-0.5">
+                                      <div className="flex items-center gap-2">
+                                        <span className={cn(
+                                          "badge text-[10px] py-0.5 px-2",
+                                          isPaid ? "badge-success" : "bg-amber-500/10 text-amber-600"
+                                        )}>
+                                          {isPaid ? "Paid" : "Pending"}
+                                        </span>
+                                        {canToggle && (
+                                          <button
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              await handleToggleSplitPaid(expense, split.id, !!isPaid, split.user_id, split.amount_owed);
+                                            }}
+                                            disabled={togglingSplitId === split.id}
+                                            className={cn(
+                                              "text-[10px] font-bold px-2 py-1 rounded-lg transition-all cursor-pointer",
+                                              isPaid
+                                                ? "bg-slate-100 text-muted-foreground hover:bg-slate-200/85"
+                                                : "bg-primary/10 text-primary hover:bg-primary/20 hover:scale-[1.02]"
+                                            )}
+                                          >
+                                            {togglingSplitId === split.id ? "..." : isPaid ? "Mark Unpaid" : "Mark Paid"}
+                                          </button>
+                                        )}
+                                      </div>
+                                      <span className="text-[8px] text-muted-foreground pr-1">
+                                        {isPaid ? "Verified by Admin" : "Pending Admin Verification"}
                                       </span>
-                                      {canToggle && (
-                                        <button
-                                          onClick={async (e) => {
-                                            e.stopPropagation();
-                                            await handleToggleSplitPaid(expense, split.id, !!isPaid, split.user_id, split.amount_owed);
-                                          }}
-                                          disabled={togglingSplitId === split.id}
-                                          className={cn(
-                                            "text-[10px] font-bold px-2 py-1 rounded-lg transition-all cursor-pointer",
-                                            isPaid
-                                              ? "bg-slate-100 text-muted-foreground hover:bg-slate-200/85"
-                                              : "bg-primary/10 text-primary hover:bg-primary/20 hover:scale-[1.02]"
-                                          )}
-                                        >
-                                          {togglingSplitId === split.id ? "..." : isPaid ? "Mark Unpaid" : "Mark Paid"}
-                                        </button>
-                                      )}
-                                    </>
+                                    </div>
                                   )}
                                 </div>
                               </div>

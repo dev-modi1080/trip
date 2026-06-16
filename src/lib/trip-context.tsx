@@ -23,6 +23,7 @@ type TripContextType = {
   trip: Trip | null;
   members: (TripMember & { user: User })[];
   expenses: Expense[];
+  setExpenses: React.Dispatch<React.SetStateAction<Expense[]>>;
   settlements: Settlement[];
   itinerary: ItineraryItem[];
   photos: TripPhoto[];
@@ -192,6 +193,67 @@ export function TripProvider({
     refreshPhotos,
   ]);
 
+  // Realtime postgres changes subscriptions to sync data across all trip members without reload
+  useEffect(() => {
+    const channel = supabase
+      .channel(`trip-realtime-${tripId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "expenses", filter: `trip_id=eq.${tripId}` },
+        () => {
+          refreshExpenses();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "settlements", filter: `trip_id=eq.${tripId}` },
+        () => {
+          refreshSettlements();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "itinerary_items", filter: `trip_id=eq.${tripId}` },
+        () => {
+          refreshItinerary();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "trip_photos", filter: `trip_id=eq.${tripId}` },
+        () => {
+          refreshPhotos();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "trip_members", filter: `trip_id=eq.${tripId}` },
+        () => {
+          refreshMembers();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "expense_splits" },
+        () => {
+          refreshExpenses();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [
+    supabase,
+    tripId,
+    refreshExpenses,
+    refreshSettlements,
+    refreshItinerary,
+    refreshPhotos,
+    refreshMembers,
+  ]);
+
   const isAdmin =
     members.find((m) => m.user_id === currentUserId)?.role === "admin";
 
@@ -201,6 +263,7 @@ export function TripProvider({
         trip,
         members,
         expenses,
+        setExpenses,
         settlements,
         itinerary,
         photos,

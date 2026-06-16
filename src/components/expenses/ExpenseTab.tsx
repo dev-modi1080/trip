@@ -73,7 +73,7 @@ export default function ExpenseTab() {
       </div>
 
       {/* Sub-Tab Navigation */}
-      <div className="flex gap-1.5 p-1 bg-secondary/50 rounded-xl border border-border/30">
+      <div className="flex gap-1.5 p-1.5 bg-secondary/50 rounded-xl border border-border/30">
         {SUB_TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -83,13 +83,13 @@ export default function ExpenseTab() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'flex items-center gap-2 flex-1 justify-center py-2.5 px-3 rounded-lg text-sm font-semibold transition-all duration-300',
+                'flex items-center gap-2 flex-1 justify-center py-3 px-3.5 rounded-lg text-sm font-bold transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
                 isActive
                   ? 'bg-primary/10 text-primary shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-slate-100'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-slate-100/50'
               )}
             >
-              <Icon className="w-4 h-4" />
+              <Icon className="w-5 h-5 shrink-0" />
               <span className="hidden sm:inline">{tab.label}</span>
               <span className="sm:hidden">{tab.label.split(' ').pop()}</span>
             </button>
