@@ -263,17 +263,17 @@ function TripDetailContent() {
         )}
 
         {/* Tab Navigation */}
-        <div className="flex overflow-x-auto gap-1.5 mb-6 p-1.5 bg-secondary/50 rounded-2xl border border-border/50 no-scrollbar">
+        <div className="grid grid-cols-5 sm:flex sm:overflow-x-auto gap-1 sm:gap-1.5 mb-6 p-1.5 bg-secondary/50 rounded-2xl border border-border/50 no-scrollbar">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold whitespace-nowrap transition-all flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
+              className={`flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-1 py-2 sm:px-5 sm:py-3 rounded-xl text-[10px] sm:text-sm font-bold transition-all justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
                 activeTab === tab.id ? "tab-active" : "tab-inactive"
               }`}
             >
               <tab.icon className="w-5 h-5 shrink-0" />
-              {tab.label}
+              <span className="truncate max-w-full">{tab.label}</span>
             </button>
           ))}
         </div>
